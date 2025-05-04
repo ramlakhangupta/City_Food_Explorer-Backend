@@ -8,20 +8,20 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const dotenv = require("dotenv");
-const multer = require('multer');
+const upload = require('../middleware/multer');
 
 dotenv.config();
 
 // File Upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); 
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-const upload = multer({ storage });
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, 'uploads/'); 
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, Date.now() + '-' + file.originalname);
+//   }
+// });
+// const upload = multer({ storage });
 
 // ------------------ ROUTES ------------------ //
 
@@ -195,27 +195,27 @@ router.post('/addDish/:userID', upload.single('img'), async (req, res) => {
   const { dishName, dishPrice, description, shopName, category, shopLocation, cityName, cityState } = req.body;
   const userID = req.params.userID;
 
-  const foundUser = await user.findById(userID);
-  const imagePath = req.file ? req.file.filename : '';
+  // ✅ Correct: Use 'path' to get the Cloudinary URL
+  const imageUrl = req.file ? req.file.path : '';
 
-  if (foundUser.email === process.env.ADMIN_EMAIL) {
-    const newDish = new dish({ dishName, dishPrice, img: imagePath, description, shopName, category, shopLocation, cityName, cityState });
-    try {
+  try {
+    const foundUser = await user.findById(userID);
+
+    if (foundUser.email === process.env.ADMIN_EMAIL) {
+      const newDish = new dish({ dishName, dishPrice, img: imageUrl, description, shopName, category, shopLocation, cityName, cityState });
       await newDish.save();
-      res.status(200).json({ message: "Dish added successfully" });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  } else {
-    const newDish = new addedDish({ dishName, dishPrice, img: imagePath, description, shopName, category, shopLocation, cityName, cityState, userInfo: foundUser._id });
-    try {
+      return res.status(200).json({ message: "Dish added successfully" });
+    } else {
+      const newDish = new addedDish({ dishName, dishPrice, img: imageUrl, description, shopName, category, shopLocation, cityName, cityState, userInfo: foundUser._id });
       await newDish.save();
-      res.status(200).json({ message: "Dish sent to Admin for review" });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+      return res.status(200).json({ message: "Dish sent to Admin for review" });
     }
+  } catch (error) {
+    console.error("Error while adding dish: ", error);
+    return res.status(500).json({ message: error.message });
   }
 });
+
 
 // 🔥 Like Dish
 router.post('/:id/like', auth, async (req, res) => {
